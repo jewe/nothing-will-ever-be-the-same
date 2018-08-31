@@ -797,7 +797,7 @@ void configUpdateDisplay(){
     if (selectedProperty == PROPERTY_STEPS) {
       value += action * 5;
       if (value < 0) value = 0;
-      else if (value > 9999) value = 0;
+      else if (value > 9999) value = 9999;
     }
     else if (selectedProperty == PROPERTY_MODE) {
       value += action;
@@ -806,14 +806,14 @@ void configUpdateDisplay(){
     }
     // TODO: find fastest velocity
     else if (selectedProperty == PROPERTY_V1 || selectedProperty == PROPERTY_V2) {
-      value += action;
-      if (value <= 0) value = 1;
-      else if (value > 199) value = 1;
+      value += action * 2;
+      if (value < 1) value = 1;
+      else if (value > 199) value = 199;
     }
-    else if (selectedProperty == PROPERTY_DELAY) {
-      value += action;
+    else if (selectedProperty == PROPERTY_DELAY || selectedProperty == PROPERTY_RANDDELAY) {
+      value += action * 100;
       if (value < 0) value = 0;
-      else if (value > 30) value = 0;
+      else if (value > 9999) value = 9999;
     }
 
 

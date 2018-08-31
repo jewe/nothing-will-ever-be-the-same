@@ -25,14 +25,18 @@ Box: In der drive-Funktion
 ist es unerheblich, ob das delay bei beiden gleich ist. Das Zittern ändert sich nicht.
 
 
-TODO:
-save config permanently
-
 NEXT:
 Die 9V nur 1x durchs Netzwerkkabel schleifen und 2 Pins für einen Interrupt nutzen.
 So kann eine Notabschaltung realisiert werden.
 
 
+
+# Motortreiber
+schwarz: 2100
+grün: 2130
+
+Bei den 2130ern müssen auf der Unterseite die Jumper geschlossen werden, um sie zu benutzen (und nicht per SPI zu programmieren).
+2130: https://github.com/watterott/SilentStepStick/blob/master/hardware/SilentStepStick-TMC2130_v11.pdf
 
 
 

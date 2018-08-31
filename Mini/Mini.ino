@@ -318,6 +318,10 @@ void loop() {
 
     case INIT_2:
       drive(UP, HOLD);
+      if (limitReached) {
+        limitReached = false;
+        setState(RELAX);
+      }
     break;
 
     // DOWN ////////////////
