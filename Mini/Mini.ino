@@ -5,7 +5,7 @@
   NOTHING WILL EVER BE THE SAME
   Mini / Box
 
-  Arduino Mini
+  Arduino Pro or Pro Mini
 
   2018 Jens Weber
 
@@ -25,7 +25,7 @@ enum {
 ////////////////////////////////////////////////////////////////////////////////
 // CONFIG
 
-String version = "0.4";
+String version = "0.5";
 #define WATCHDOG_TIMEOUT 15000 // ms / send every ...ms state to master
 //TODO bool verbose true // log more details, as config option
 
@@ -418,7 +418,7 @@ void loop() {
   }
 
   // handling exception
-  // state is not UP_5!
+  // state is not UP_5 || INIT_2
   if (limitReached) {
     limitReached = false;
     setState(INIT_1);
