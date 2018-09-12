@@ -1031,8 +1031,8 @@ void loadDefaultStateValues() {
 
   stateParams[INIT_2].mode = SIXTEENTH;
   stateParams[INIT_2].steps = 20000;
-  stateParams[INIT_2].vel1 = 5;
-  stateParams[INIT_2].vel2 = 5;
+  stateParams[INIT_2].vel1 = 20;
+  stateParams[INIT_2].vel2 = 20;
 
   // down
   stateParams[UP_READY].delay = 1000; // ms

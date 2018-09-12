@@ -425,7 +425,7 @@ void loop() {
   // state is not UP_5 || INIT_2
   if (limitReached) {
     limitReached = false;
-    if (state == UP_1 || state == UP_2 || state == UP_3 ) {
+    if (state == UP_1 || state == UP_2 || state == UP_3 || INIT_1) {
       sendLog("Error: Limit switch while UP1..3 -> INIT");
       setState(INIT_1);
     }
