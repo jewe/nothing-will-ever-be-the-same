@@ -16,6 +16,10 @@ Zweig A+B können nun vertauscht werden (getestet).
 Bei Programmieren des Master Zweig A entfernen
 
 
+2018-08:
+1700 Schritte = 2,10m
+
+
 
 Box: In der drive-Funktion
   digitalWrite(STEP_PIN, HIGH);

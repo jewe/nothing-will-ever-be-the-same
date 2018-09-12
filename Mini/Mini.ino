@@ -373,6 +373,10 @@ void loop() {
 
     case UP_4:
       drive(UP, HOLD);
+      if (limitReached) {
+        limitReached = false;
+        setState(RELAX);
+      }
       setState(UP_5);
     break;
 
@@ -421,16 +425,23 @@ void loop() {
   // state is not UP_5 || INIT_2
   if (limitReached) {
     limitReached = false;
-    setState(INIT_1);
+    if (state == UP_1 || state == UP_2 || state == UP_3 ) {
+      sendLog("Error: Limit switch while UP1..3 -> INIT");
+      setState(INIT_1);
+    }
+    sendLog("ERROR: limit switch activated ");
   }
 }
 
 // interrupt (don't use Serial)
 void limitSwitch() {
-  if (millis() < limitSwitchTimer + 500) return; // debounce switch with 500ms
+  if (millis() < limitSwitchTimer + 500) {
+    sendLog("limit switch activated, but ignored (<500ms)");
+    return; // debounce switch with 500ms
+  }
   //digitalWrite(EN_PIN, HIGH);   // disable driver
   limitSwitchTimer = millis();
-  sendLog("limit switch");
+  sendLog("limit switch activated");
   limitReached = true;
   digitalWrite(LED, HIGH);
 }
