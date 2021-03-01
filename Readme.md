@@ -5,6 +5,8 @@
 Use debugging port with 19200bps
 
 
+## Sketch Upload
+Disconnect all boxes before upload (Serial port is used for box communication)!
 
 ## States
 
