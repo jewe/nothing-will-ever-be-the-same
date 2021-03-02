@@ -376,8 +376,10 @@ void loop() {
       if (limitReached) {
         limitReached = false;
         setState(RELAX);
+        sendLog("Error: limit switch in UP4. Reduce steps in UP4");
+      } else {
+        setState(UP_5);
       }
-      setState(UP_5);
     break;
 
     case UP_5:
