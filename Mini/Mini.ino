@@ -25,7 +25,7 @@ enum {
 ////////////////////////////////////////////////////////////////////////////////
 // CONFIG
 
-String version = "0.6";
+String version = "0.7";
 #define WATCHDOG_TIMEOUT 15000 // ms / send every ...ms state to master
 //TODO bool verbose true // log more details, as config option
 
@@ -54,10 +54,8 @@ uint8_t state, lastState;
 long limitSwitchTimer;
 long watchdog, lastWatchdog;
 uint16_t stepCounter;
-
-volatile bool limitReached = false; // to break drive cycle by limit switch
-volatile bool limitSwitchRaw = false;
-volatile bool limitSwitchReset = false;
+bool limitReached = false; // to break drive cycle by limit switch
+bool limitSwitchRaw = false;
 
 CmdMessenger cmdMessenger = CmdMessenger(Serial);
 
@@ -157,8 +155,6 @@ void configureState(){
   if (_state >= 0 && _state < 100) {
     stateParams[_state].mode = mode;
     stateParams[_state].steps = steps;
-    sendLog("steps");
-    sendLog( (String) steps);
     stateParams[_state].vel1 = vel1 == 0 ? 1 : vel1;
     stateParams[_state].vel2 = vel2 == 0 ? 1 : vel2;
     cmdMessenger.sendCmd(kAck);
@@ -279,9 +275,8 @@ void setup() {
   pinMode(LED, OUTPUT); // indicator LED for debugging
   pinMode(LIMIT_PIN, INPUT_PULLUP);  // limit switch
   attachInterrupt(digitalPinToInterrupt(LIMIT_PIN), limitSwitch, FALLING);
-  attachInterrupt(digitalPinToInterrupt(LIMIT_PIN), limitSwitchBack, RISING);
 
-  // initialize stepper driver
+  // initilaize stepper driver
   delay(200);  // wait a bit for stepper driver
   pinMode(EN_PIN, OUTPUT);
   digitalWrite(EN_PIN, HIGH); // deactivate driver (LOW active)
@@ -382,10 +377,8 @@ void loop() {
       if (limitReached) {
         limitReached = false;
         setState(RELAX);
-        sendLog("Error: limit switch in UP4. Reduce steps in UP4");
-      } else {
-        setState(UP_5);
       }
+      setState(UP_5);
     break;
 
     case UP_5:
@@ -433,10 +426,10 @@ void loop() {
   // state is not UP_5 || INIT_2
   if (limitReached) {
     limitReached = false;
-    if (state == INIT_1) {
-      sendLog("Error: Limit switch while INIT_1 -> INIT");
-      setState(INIT_1);
-    } 
+    // if (state == UP_1 || state == UP_2 || state == UP_3 || INIT_1) {
+    //   sendLog("Error: Limit switch while UP1..3 -> INIT");
+    //   setState(INIT_1);
+    // }
     sendLog("ERROR: limit switch activated ");
   }
 
@@ -444,13 +437,6 @@ void loop() {
     limitSwitchRaw = false;
     sendLog("limit switch activated ");
   }
-
-  if (limitSwitchReset) {
-    limitSwitchReset = false;
-    sendLog("limit switch reset ");
-    sendLog( (String) limitSwitchTimer);
-  }
-  
 }
 
 // interrupt (don't use Serial)
@@ -461,17 +447,10 @@ void limitSwitch() {
   }
   //digitalWrite(EN_PIN, HIGH);   // disable driver
   limitSwitchTimer = millis();
-  // sendLog("limit switch activated");
-  // if (state == INIT_1 || state == INIT_2 || state == UP_5 || state == UP_4) {
-    limitReached = true;
-  // } 
+  //sendLog("limit switch activated");
+  limitReached = true;
   limitSwitchRaw = true;
   digitalWrite(LED, HIGH);
-}
-
-// interrupt 
-void limitSwitchBack() {
-  limitSwitchReset = true;
 }
 
 void checkWatchdog(){
