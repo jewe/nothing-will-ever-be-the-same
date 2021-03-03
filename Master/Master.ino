@@ -261,9 +261,9 @@ class Box {
       debugSerial->print( state2Name(lastState) );
       debugSerial->print(" \tlastChange ");
       debugSerial->print(lastStateChange);
-      // debugSerial->print("s \tlimitSwitch ");
-      // debugSerial->print(limitSwitchTimer);
-      // debugSerial->print("s");
+      debugSerial->print("s \tlimitSwitch ");
+      debugSerial->print(limitSwitchTimer);
+      debugSerial->print("s");
     }
     debugSerial->println(" ");
     displayNewState = true;

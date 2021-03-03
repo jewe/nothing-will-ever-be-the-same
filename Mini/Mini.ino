@@ -25,7 +25,7 @@ enum {
 ////////////////////////////////////////////////////////////////////////////////
 // CONFIG
 
-String version = "0.5";
+String version = "0.6";
 #define WATCHDOG_TIMEOUT 15000 // ms / send every ...ms state to master
 //TODO bool verbose true // log more details, as config option
 
@@ -154,6 +154,8 @@ void configureState(){
   if (_state >= 0 && _state < 100) {
     stateParams[_state].mode = mode;
     stateParams[_state].steps = steps;
+    sendLog("steps");
+    sendLog( (String) steps);
     stateParams[_state].vel1 = vel1 == 0 ? 1 : vel1;
     stateParams[_state].vel2 = vel2 == 0 ? 1 : vel2;
     cmdMessenger.sendCmd(kAck);
@@ -274,6 +276,7 @@ void setup() {
   pinMode(LED, OUTPUT); // indicator LED for debugging
   pinMode(LIMIT_PIN, INPUT_PULLUP);  // limit switch
   attachInterrupt(digitalPinToInterrupt(LIMIT_PIN), limitSwitch, FALLING);
+  attachInterrupt(digitalPinToInterrupt(LIMIT_PIN), limitSwitchBack, RISING);
 
   // initilaize stepper driver
   delay(200);  // wait a bit for stepper driver
@@ -444,8 +447,18 @@ void limitSwitch() {
   //digitalWrite(EN_PIN, HIGH);   // disable driver
   limitSwitchTimer = millis();
   sendLog("limit switch activated");
-  limitReached = true;
+  if (state == INIT_1 || state == INIT_2 || state == UP_5 || state == UP_4) {
+    limitReached = true;
+  } else {
+    sendLog("limit switch ignored, wrong state");
+  }
   digitalWrite(LED, HIGH);
+}
+
+// interrupt 
+void limitSwitchBack() {
+  sendLog("limit switch reset");
+  sendLog((String) limitSwitchTimer);
 }
 
 void checkWatchdog(){
