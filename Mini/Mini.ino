@@ -54,7 +54,10 @@ uint8_t state, lastState;
 long limitSwitchTimer;
 long watchdog, lastWatchdog;
 uint16_t stepCounter;
-bool limitReached = false; // to break drive cycle by limit switch
+
+volatile bool limitReached = false; // to break drive cycle by limit switch
+volatile bool limitSwitchRaw = false;
+volatile bool limitSwitchReset = false;
 
 CmdMessenger cmdMessenger = CmdMessenger(Serial);
 
@@ -278,7 +281,7 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(LIMIT_PIN), limitSwitch, FALLING);
   attachInterrupt(digitalPinToInterrupt(LIMIT_PIN), limitSwitchBack, RISING);
 
-  // initilaize stepper driver
+  // initialize stepper driver
   delay(200);  // wait a bit for stepper driver
   pinMode(EN_PIN, OUTPUT);
   digitalWrite(EN_PIN, HIGH); // deactivate driver (LOW active)
@@ -430,35 +433,45 @@ void loop() {
   // state is not UP_5 || INIT_2
   if (limitReached) {
     limitReached = false;
-    if (state == UP_1 || state == UP_2 || state == UP_3 || INIT_1) {
-      sendLog("Error: Limit switch while UP1..3 -> INIT");
+    if (state == INIT_1) {
+      sendLog("Error: Limit switch while INIT_1 -> INIT");
       setState(INIT_1);
-    }
+    } 
     sendLog("ERROR: limit switch activated ");
   }
+
+  if (limitSwitchRaw) {
+    limitSwitchRaw = false;
+    sendLog("limit switch activated ");
+  }
+
+  if (limitSwitchReset) {
+    limitSwitchReset = false;
+    sendLog("limit switch reset ");
+    sendLog( (String) limitSwitchTimer);
+  }
+  
 }
 
 // interrupt (don't use Serial)
 void limitSwitch() {
   if (millis() < limitSwitchTimer + 500) {
-    sendLog("limit switch activated, but ignored (<500ms)");
+    //sendLog("limit switch activated, but ignored (<500ms)");
     return; // debounce switch with 500ms
   }
   //digitalWrite(EN_PIN, HIGH);   // disable driver
   limitSwitchTimer = millis();
-  sendLog("limit switch activated");
-  if (state == INIT_1 || state == INIT_2 || state == UP_5 || state == UP_4) {
+  // sendLog("limit switch activated");
+  // if (state == INIT_1 || state == INIT_2 || state == UP_5 || state == UP_4) {
     limitReached = true;
-  } else {
-    sendLog("limit switch ignored, wrong state");
-  }
+  // } 
+  limitSwitchRaw = true;
   digitalWrite(LED, HIGH);
 }
 
 // interrupt 
 void limitSwitchBack() {
-  sendLog("limit switch reset");
-  sendLog((String) limitSwitchTimer);
+  limitSwitchReset = true;
 }
 
 void checkWatchdog(){
