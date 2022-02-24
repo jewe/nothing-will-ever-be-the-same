@@ -2,11 +2,17 @@
 
 
 ## Debugging
-Use debugging port with 19200bps
+Use debugging port (micro USB) with 38400bps
 
 
-## Sketch Upload
+## Update / Sketch Upload
+### Master
+Use USB B connector
 Disconnect all boxes before upload (Serial port is used for box communication)!
+
+### Boxes
+See photo in Doku
+Use FTDI adapter
 
 ## States
 
@@ -80,15 +86,3 @@ UP_READY:
 it is not possible to include CmdMessenger into Box class, because function to attach needs to be static
 
 
-
-----
-
-4,5; > set state to 5
-
-
-  3,0,0,1.05;
-5,Ready;
-3,1,0,1.00;
-3,1,1,0.80;
-receiveState
-3,5,1,337.39;

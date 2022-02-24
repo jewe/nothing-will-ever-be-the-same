@@ -25,7 +25,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 // CONFIG
 
-String version = "0.9";
+String version = "0.11";
 #define WATCHDOG_TIMEOUT 60000 // ms
 #define NUM_BOXES 4
 #define VERBOSE true // log more details
@@ -97,7 +97,7 @@ String state2Name(uint8_t state){
   else if (state == INIT_2) str =     "INIT_2 ";
   else if (state == CAL_1) str =      "CAL_1  ";
   else if (state == CAL_2) str =      "CAL_2  ";
-  else if (state == CAL_3) str =      "HELP   "; // for GUI
+  else if (state == CAL_3) str =      "CAL_3  "; 
   else if (state == DOWN_1) str =     "DOWN_1 ";
   else if (state == DOWN_2) str =     "DOWN_2 ";
   else if (state == DOWN_3) str =     "DOWN_3 ";
@@ -249,7 +249,7 @@ class Box {
 
     state = cmdMessenger->readInt16Arg();
     lastState = cmdMessenger->readInt16Arg();
-    lastStateChange = cmdMessenger->readInt16Arg();
+    lastStateChange = cmdMessenger->readFloatArg();
     limitSwitchTimer = cmdMessenger->readFloatArg();
 
     debugSerial->print("<Box");
@@ -369,16 +369,15 @@ void setup() {
   lcd.createChar(0, customCharArrow1);
   lcd.createChar(1, customCharArrow2);
   lcd.createChar(2, customCharArrow3);
-  displayStep01();
 
   // initialize serial ports:
   Serial.begin(19200);
   Serial1.begin(19200);
   Serial2.begin(19200);
   Serial3.begin(19200);
-  softSerial.begin(19200);
+  softSerial.begin(38400);
 
-  if (VERBOSE) debugSerial->println("<MASTER> Setup started");
+  if (VERBOSE) debugSerial->println("<MASTER> Setup started. Version " + version);
 
   // setup boxes
   for(uint8_t i = 0; i < NUM_BOXES; i++){
@@ -412,8 +411,9 @@ void setup() {
 
   randomSeed(analogRead(0));
 
-  debugSerial->println("<MASTER> Setup finished. Version " + version);
+  debugSerial->println("<MASTER> Setup finished");
 
+  displayStep01();
   setMode(INIT);
 
 }
@@ -487,22 +487,7 @@ void loop() {
   }
 
   checkWatchdog();
-
-  // receive commands from debug serial 
-  if (softSerial.available()) {
-    char inByte = softSerial.read();
-    debugSerial->print("CMD ");
-    debugSerial->println(inByte);
-
-    if (inByte == 'd') {
-      debugSerial->println("d received");
-      // TODO: configure box
-      for(uint8_t i = 0; i < NUM_BOXES; i++){
-        box[i].configure(stateParams[s], 0);
-      }
-
-    }
-  }
+  readDebugSerial();
     
   switch(mode){
 
@@ -558,8 +543,9 @@ void loop() {
     break;
 
     case CALIBRATION:
-
-
+      if ( allBoxesInState(UP_READY) ) {
+        setAllBoxesToState(CAL_1);
+      }
     break;
 
 
@@ -606,6 +592,8 @@ void loop() {
         selected = SELECT_PROPERTY;
       }
       configUpdateDisplay();
+    } else if (mode == CALIBRATION) {
+      setAllBoxesToState(CAL_2);
     }
   }
 
@@ -691,9 +679,13 @@ void setMode(uint8_t _mode){
 
   if (mode == INIT) {
     setAllBoxesToState(INIT_0);
+    lcd.setCursor(0, 3);
+    lcd.print("V " + version);
     //delay(1000);
   } else if (mode == CALIBRATION) {
-    setAllBoxesToState(CAL_1);
+    setAllBoxesToState(INIT_0);
+    lcd.setCursor(0, 3);
+    lcd.print("Press Back to stop ");
   }
 }
 
@@ -710,9 +702,15 @@ void setAllBoxesToState(uint8_t state){
 void configureAllBoxes(){
 
   debugSerial->println("<MASTER> configureAllBoxes start");
+
+  debugSerial->println("verbose " + (String)stateParams[0].mode );
+  debugSerial->println("responsive " + (String)stateParams[0].steps );
+  debugSerial->println("driveDelayFactor " + (String)stateParams[0].vel1 );
+  // debugSerial->println("driveDelayFactor " + (String)stateParams[0].vel2 );
+
   for(uint8_t i = 0; i < NUM_BOXES; i++){
     for(uint8_t s = 0; s < 20; s++){
-      if (stateParams[s].steps > 0) box[i].configure(stateParams[s], s);
+      if (s == 0 || stateParams[s].steps > 0) box[i].configure(stateParams[s], s);
       //else debugSerial->println("exit " + (String)s + " " + (String)stateParams[s].steps );
     }
   }
@@ -740,6 +738,64 @@ void checkWatchdog(){
 
     watchdog = millis();
     //requestStates();
+  }
+}
+
+void readDebugSerial(){
+  // receive commands from debug serial 
+  if (softSerial.available()) {
+    char inByte = softSerial.read();
+    debugSerial->print("CMD ");
+    debugSerial->println(inByte);
+
+    if (inByte == 'v') {
+      debugSerial->println("enable verbose");
+      stateParams[0].mode = 1;
+    } else if (inByte == 'V') {
+      debugSerial->println("disable verbose");
+      stateParams[0].mode = 0;
+    
+    } else if (inByte == 'r') {
+      debugSerial->println("disable responsive");
+      stateParams[0].steps = 1; 
+    } else if (inByte == 'R') {
+      debugSerial->println("enable responsive");
+      stateParams[0].steps = 0; 
+      
+    } else if (inByte == '1') {
+      debugSerial->println("driveDelayFactor 1");
+      stateParams[0].vel1 = 1;
+    } else if (inByte == '2') {
+      debugSerial->println("driveDelayFactor 10");
+      stateParams[0].vel1 = 10;
+    
+    } else if (inByte == 'c') {
+      setMode(CALIBRATION);
+      debugSerial->println(mode);
+      debugSerial->println("send C to stop");
+    } else if (inByte == 'C') {
+      setAllBoxesToState(CAL_2);
+      debugSerial->println('STOP: CAL_2');
+    } else if (inByte == 's') {
+      setMode(STOP);
+      debugSerial->println(mode);
+    } else if (inByte == 'i') {
+      setMode(INIT);
+      debugSerial->println(mode);
+
+    } else if (inByte == 'x') {
+      // debugSerial->println("enable unresponsive");
+      // stateParams[0].steps = 1; 
+      // stateParams[0].vel1 = 5;
+      // stateParams[0].vel2 = 5;
+    }  
+
+    // send config params
+    if (inByte != 'c' && inByte != 'C' && inByte != 's' && inByte != 'i') {
+      for(uint8_t i = 0; i < NUM_BOXES; i++){
+        box[i].configure(stateParams[0], 0);
+      }
+    }
   }
 }
 

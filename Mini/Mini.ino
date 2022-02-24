@@ -25,10 +25,11 @@ enum {
 ////////////////////////////////////////////////////////////////////////////////
 // CONFIG
 
-String version = "0.8";
+String version = "0.10";
+int driveDelayFactor = 1; // 
 #define WATCHDOG_TIMEOUT 15000 // ms / send every ...ms state to master
-bool verbose true // log more details, as config option
-
+bool verbose = true; // log more details
+bool isResponsive = true; // read serial while driving? 
 
 struct boxStates{
   uint8_t mode = SIXTEENTH; // full / half ...
@@ -160,11 +161,20 @@ void configureState(){
     cmdMessenger.sendCmd(kAck);
   } else if (_state == 0) {
     // use state 0 for config options
-    verbose = mode == 1
-    sendLog("set verbose");
+    verbose = mode == 1;
+    sendLog("set verbose = ");
     sendLog( (String)verbose );
 
-  } else sendError("Unknown state " + _state);
+    isResponsive = steps == 1;
+    sendLog("set isResponsive = ");
+    sendLog( (String)isResponsive );
+
+    driveDelayFactor = vel1
+    sendLog("set driveDelayFactor = ");
+    sendLog( (String)driveDelayFactor );
+
+    cmdMessenger.sendCmd(kAck);
+  } else sendError("Unknown config state " + _state);
 }
 
 void receiveState(){
@@ -209,6 +219,7 @@ void setup() {
   }
 
   // default values - config overrides all!
+
   // init
   stateParams[INIT_1].mode = SIXTEENTH;
   stateParams[INIT_1].steps = 100; // 87 = 10cm
@@ -321,9 +332,17 @@ void loop() {
     case INIT_1:
 
       sendLog("Version " + version);
-      sendLog("Transfer Test: \n");
+      sendLog("Transfer Test:");
       for (uint16_t i = 0; i < 10; i++) {
-        sendLog("00000 FFFFF 00000 FFFFF 00000 FFFFF 00000 FFFFF 00000 FFFFF\n");
+        sendLog("00000 11111 22222 33333");
+      }
+      for (uint16_t i = 0; i < 5; i++) {
+        sendLog("AAAAA");
+      }
+
+      delay(5)
+      for (uint16_t i = 0; i < 5; i++) {
+        sendLog("BBBBB");
       }
 
       drive(DOWN, HOLD);
@@ -414,7 +433,7 @@ void loop() {
     break;
 
     case UP_READY:
-      // nothing to do // wait for master cammand to fall
+      // nothing to do // wait for master command to fall
     break;
 
 
@@ -449,7 +468,7 @@ void loop() {
 
   if (limitSwitchRaw) {
     limitSwitchRaw = false;
-    sendLog("limit switch activated ");
+    if (verbose) sendLog("limit switch activated ");
   }
 }
 
@@ -524,7 +543,11 @@ void drive(bool up, bool free) {
   float v = v1;
   float a = (v2 - v1) / steps;
 
-  //sendLog( (String)v );
+  if (verbose) {
+    sendLog( "v: " + (String) v );
+    sendLog( "a: " + (String) a );
+  }
+  
 
   // see https://github.com/watterott/SilentStepStick/blob/master/software/TMC2100.ino
 
@@ -532,14 +555,13 @@ void drive(bool up, bool free) {
   digitalWrite(DIR_PIN, up);   // direction
 
   for (uint16_t i = 0; i < steps; i++) {
-    // cmdMessenger.feedinSerialData(); // make box responsive
+    if (isResponsive) cmdMessenger.feedinSerialData(); // make box responsive
     if (!limitReached && !cmdMessenger.available() && state != STOPPED) {
       digitalWrite(STEP_PIN, HIGH);
-      delayMicroseconds(5);
+      delayMicroseconds(5 * driveDelayFactor); // example watterott: delay(2)
       digitalWrite(STEP_PIN, LOW);
-
       v += a;
-      delayMicroseconds( (unsigned int) v);
+      delayMicroseconds( (unsigned int) (v * driveDelayFactor) );
     }
   }
 
@@ -548,8 +570,6 @@ void drive(bool up, bool free) {
   } else {
     digitalWrite(EN_PIN, HIGH);   // disable driver, treiber ausschalten (dann dreht er frei)
   }
-
-
 
   // if ( cmdMessenger.available() ) {
   //   sendLog("exit drive loop");
