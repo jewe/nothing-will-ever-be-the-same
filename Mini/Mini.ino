@@ -25,9 +25,9 @@ enum {
 ////////////////////////////////////////////////////////////////////////////////
 // CONFIG
 
-String version = "0.7";
+String version = "0.8";
 #define WATCHDOG_TIMEOUT 15000 // ms / send every ...ms state to master
-//TODO bool verbose true // log more details, as config option
+bool verbose true // log more details, as config option
 
 
 struct boxStates{
@@ -152,12 +152,18 @@ void configureState(){
   uint16_t vel1 = cmdMessenger.readInt16Arg();
   uint16_t vel2 = cmdMessenger.readInt16Arg();
 
-  if (_state >= 0 && _state < 100) {
+  if (_state > 0 && _state < 100) {
     stateParams[_state].mode = mode;
     stateParams[_state].steps = steps;
     stateParams[_state].vel1 = vel1 == 0 ? 1 : vel1;
     stateParams[_state].vel2 = vel2 == 0 ? 1 : vel2;
     cmdMessenger.sendCmd(kAck);
+  } else if (_state == 0) {
+    // use state 0 for config options
+    verbose = mode == 1
+    sendLog("set verbose");
+    sendLog( (String)verbose );
+
   } else sendError("Unknown state " + _state);
 }
 
@@ -313,6 +319,13 @@ void loop() {
     break;
 
     case INIT_1:
+
+      sendLog("Version " + version);
+      sendLog("Transfer Test: \n");
+      for (uint16_t i = 0; i < 10; i++) {
+        sendLog("00000 FFFFF 00000 FFFFF 00000 FFFFF 00000 FFFFF 00000 FFFFF\n");
+      }
+
       drive(DOWN, HOLD);
       setState(INIT_2);
     break;
@@ -352,7 +365,7 @@ void loop() {
     break;
 
     case DOWN_READY:
-      // wait for master cammand to lift
+      // wait for master command to lift
       // TODO RELAX - DISABLE DRIVER
     break;
 
@@ -374,11 +387,12 @@ void loop() {
 
     case UP_4:
       drive(UP, HOLD);
-      if (limitReached) {
+      if (!limitReached) {
+        setState(UP_5);
+      } else {
         limitReached = false;
         setState(RELAX);
       }
-      setState(UP_5);
     break;
 
     case UP_5:
@@ -396,7 +410,7 @@ void loop() {
 
       delay(300);
       digitalWrite(LED, LOW);
-      sendLog("relax");
+      // sendLog("relax");
     break;
 
     case UP_READY:
@@ -430,7 +444,7 @@ void loop() {
     //   sendLog("Error: Limit switch while UP1..3 -> INIT");
     //   setState(INIT_1);
     // }
-    sendLog("ERROR: limit switch activated ");
+    sendLog("ERROR: limitReached ");
   }
 
   if (limitSwitchRaw) {
@@ -518,7 +532,7 @@ void drive(bool up, bool free) {
   digitalWrite(DIR_PIN, up);   // direction
 
   for (uint16_t i = 0; i < steps; i++) {
-    cmdMessenger.feedinSerialData(); // make box responsive
+    // cmdMessenger.feedinSerialData(); // make box responsive
     if (!limitReached && !cmdMessenger.available() && state != STOPPED) {
       digitalWrite(STEP_PIN, HIGH);
       delayMicroseconds(5);

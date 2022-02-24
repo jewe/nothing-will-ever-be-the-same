@@ -25,7 +25,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 // CONFIG
 
-String version = "0.8";
+String version = "0.9";
 #define WATCHDOG_TIMEOUT 60000 // ms
 #define NUM_BOXES 4
 #define VERBOSE true // log more details
@@ -91,26 +91,26 @@ boxState stateParams[20];
 
 String state2Name(uint8_t state){
   String str = "?";
-  if (state == STOPPED) str = "STOPPED";
-  else if (state == INIT_0) str = "INIT_0 ";
-  else if (state == INIT_1) str = "INIT_1 ";
-  else if (state == INIT_2) str = "INIT_2 ";
-  else if (state == CAL_1) str = "CAL_1   ";
-  else if (state == CAL_2) str = "CAL_2   ";
-  else if (state == CAL_3) str = "HELP   "; // for GUI
-  else if (state == DOWN_1) str = "DOWN_1 ";
-  else if (state == DOWN_2) str = "DOWN_2 ";
-  else if (state == DOWN_3) str = "DOWN_3 ";
-  else if (state == DOWN_4) str = "DOWN_4 ";
-  else if (state == DOWN_5) str = "DOWN_5 ";
-  else if (state == DOWN_READY) str = "DOWN_READY";
-  else if (state == UP_1) str = "UP_1   ";
-  else if (state == UP_2) str = "UP_2   ";
-  else if (state == UP_3) str = "UP_3   ";
-  else if (state == UP_4) str = "UP_4   ";
-  else if (state == UP_5) str = "UP_5   ";
-  else if (state == RELAX) str = "RELAX   ";
-  else if (state == UP_READY) str = "UP_READY  ";
+  if (state == STOPPED) str =         "STOPPED";
+  else if (state == INIT_0) str =     "INIT_0 ";
+  else if (state == INIT_1) str =     "INIT_1 ";
+  else if (state == INIT_2) str =     "INIT_2 ";
+  else if (state == CAL_1) str =      "CAL_1  ";
+  else if (state == CAL_2) str =      "CAL_2  ";
+  else if (state == CAL_3) str =      "HELP   "; // for GUI
+  else if (state == DOWN_1) str =     "DOWN_1 ";
+  else if (state == DOWN_2) str =     "DOWN_2 ";
+  else if (state == DOWN_3) str =     "DOWN_3 ";
+  else if (state == DOWN_4) str =     "DOWN_4 ";
+  else if (state == DOWN_5) str =     "DOWN_5 ";
+  else if (state == DOWN_READY) str = "DOWN_RDY";
+  else if (state == UP_1) str =       "UP_1   ";
+  else if (state == UP_2) str =       "UP_2   ";
+  else if (state == UP_3) str =       "UP_3   ";
+  else if (state == UP_4) str =       "UP_4   ";
+  else if (state == UP_5) str =       "UP_5   ";
+  else if (state == RELAX) str =      "RELAX  ";
+  else if (state == UP_READY) str =   "UP_READY";
   return str;
 }
 
@@ -255,8 +255,9 @@ class Box {
     debugSerial->print("<Box");
     debugSerial->print(index);
     debugSerial->print(">  ");
+    debugSerial->print( state2Name(state) );
+    
     if (VERBOSE) {
-      debugSerial->print( state2Name(state) );
       debugSerial->print(" \tlast ");
       debugSerial->print( state2Name(lastState) );
       debugSerial->print(" \tlastChange ");
@@ -304,6 +305,14 @@ class Box {
     debugSerial->print("<Box");
     debugSerial->print(index);
     debugSerial->print(">  LOG  ");
+    debugSerial->println(msg);
+  }
+
+  void receiveError(){
+    String msg = cmdMessenger->readStringArg();
+    debugSerial->print("<Box");
+    debugSerial->print(index);
+    debugSerial->print(">  ERROR  ");
     debugSerial->println(msg);
   }
 
@@ -369,7 +378,7 @@ void setup() {
   Serial3.begin(19200);
   softSerial.begin(19200);
 
-  if (VERBOSE) debugSerial->println("<Master> Setup started");
+  if (VERBOSE) debugSerial->println("<MASTER> Setup started");
 
   // setup boxes
   for(uint8_t i = 0; i < NUM_BOXES; i++){
@@ -403,7 +412,7 @@ void setup() {
 
   randomSeed(analogRead(0));
 
-  debugSerial->println("<Master> Setup finished. Version " + version);
+  debugSerial->println("<MASTER> Setup finished. Version " + version);
 
   setMode(INIT);
 
@@ -422,9 +431,7 @@ void receiveLog1(){
 }
 
 void receiveError1(){
-  String msg = cmdMessenger1.readStringArg();
-  debugSerial->print("<Box1> Error: ");
-  debugSerial->println(msg);
+  box[0].receiveError();
 }
 
 // -----
@@ -438,9 +445,7 @@ void receiveLog2(){
 }
 
 void receiveError2(){
-  String msg = cmdMessenger2.readStringArg();
-  debugSerial->print("<Box2> Error: ");
-  debugSerial->println(msg);
+  box[1].receiveError();
 }
 
 // -----
@@ -454,9 +459,7 @@ void receiveLog3(){
 }
 
 void receiveError3(){
-  String msg = cmdMessenger3.readStringArg();
-  debugSerial->print("<Box3> Error: ");
-  debugSerial->println(msg);
+  box[2].receiveError();
 }
 
 // -----
@@ -470,9 +473,7 @@ void receiveLog4(){
 }
 
 void receiveError4(){
-  String msg = cmdMessenger4.readStringArg();
-  debugSerial->print("<Box4> Error: ");
-  debugSerial->println(msg);
+  box[3].receiveError();
 }
 
 
@@ -487,6 +488,22 @@ void loop() {
 
   checkWatchdog();
 
+  // receive commands from debug serial 
+  if (softSerial.available()) {
+    char inByte = softSerial.read();
+    debugSerial->print("CMD ");
+    debugSerial->println(inByte);
+
+    if (inByte == 'd') {
+      debugSerial->println("d received");
+      // TODO: configure box
+      for(uint8_t i = 0; i < NUM_BOXES; i++){
+        box[i].configure(stateParams[s], 0);
+      }
+
+    }
+  }
+    
   switch(mode){
 
     case STOP:
@@ -513,7 +530,7 @@ void loop() {
       // wait for all boxes
       if ( allBoxesInState(UP_READY) ) {
         // start falling
-        debugSerial->println("\n<Master> ------- DOWN ------" );
+        debugSerial->println("\n<MASTER> ------- DOWN ------" );
         delay(stateParams[UP_READY].delay);
         if (stateParams[UP_READY].randomDelay > 0) {
           uint16_t d = random(stateParams[UP_READY].randomDelay);
@@ -522,7 +539,7 @@ void loop() {
         setAllBoxesToState(DOWN_1);
       } else if ( allBoxesInState(DOWN_READY) ) {
         // start lifting
-        debugSerial->println("\n<Master> -------  UP  ------" );
+        debugSerial->println("\n<MASTER> -------  UP  ------" );
         delay(stateParams[DOWN_READY].delay);
         // random sync
         if (stateParams[DOWN_READY].randomDelay > 0) {
@@ -668,7 +685,7 @@ void setMode(uint8_t _mode){
   watchdog = millis();
 
   lcd.clear();
-  debugSerial->print("\n<Master> mode: ");
+  debugSerial->print("\n<MASTER> mode: ");
   debugSerial->println( mode2Name(mode) );
   if (mode != CONFIG) displayModeUpdate();
 
@@ -681,7 +698,7 @@ void setMode(uint8_t _mode){
 }
 
 void setAllBoxesToState(uint8_t state){
-  debugSerial->print("<Master> all to ");
+  debugSerial->print("<MASTER> all to ");
   debugSerial->println( state2Name(state) );
   watchdog = millis();
   for(uint8_t i = 0; i < NUM_BOXES; i++){
@@ -692,14 +709,14 @@ void setAllBoxesToState(uint8_t state){
 
 void configureAllBoxes(){
 
-  debugSerial->println("<Master> configureAllBoxes start");
+  debugSerial->println("<MASTER> configureAllBoxes start");
   for(uint8_t i = 0; i < NUM_BOXES; i++){
     for(uint8_t s = 0; s < 20; s++){
       if (stateParams[s].steps > 0) box[i].configure(stateParams[s], s);
       //else debugSerial->println("exit " + (String)s + " " + (String)stateParams[s].steps );
     }
   }
-  debugSerial->println("<Master> configureAllBoxes end");
+  debugSerial->println("<MASTER> configureAllBoxes end");
   setAllBoxesToState(INIT_1);
   // TODO:
   // reset box states on master and wait for refresh
@@ -710,7 +727,7 @@ void configureAllBoxes(){
 
 void checkWatchdog(){
   if (millis() > watchdog + WATCHDOG_TIMEOUT) {
-    //debugSerial->println("<Master> Watchdog " );
+    //debugSerial->println("<MASTER> Watchdog " );
     //debugSerial->print( (millis() - watchdog - WATCHDOG_TIMEOUT)/1000.0 );
     //debugSerial->println("s (reset now)");
 
