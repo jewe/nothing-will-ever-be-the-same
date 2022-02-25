@@ -25,7 +25,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 // CONFIG
 
-String version = "0.11";
+String version = "0.14";
 #define WATCHDOG_TIMEOUT 60000 // ms
 #define NUM_BOXES 4
 #define VERBOSE true // log more details
@@ -371,11 +371,11 @@ void setup() {
   lcd.createChar(2, customCharArrow3);
 
   // initialize serial ports:
-  Serial.begin(19200);
-  Serial1.begin(19200);
-  Serial2.begin(19200);
-  Serial3.begin(19200);
-  softSerial.begin(38400);
+  Serial.begin(38400);
+  Serial1.begin(38400);
+  Serial2.begin(38400);
+  Serial3.begin(38400);
+  softSerial.begin(115200);
 
   if (VERBOSE) debugSerial->println("<MASTER> Setup started. Version " + version);
 
@@ -703,10 +703,23 @@ void configureAllBoxes(){
 
   debugSerial->println("<MASTER> configureAllBoxes start");
 
+// TODO reomove this 
+    stateParams[0].mode = 0;
+    saveParamToEEPROM(state, PROPERTY_MODE);
+    
+    stateParams[0].steps = 0;
+    saveParamToEEPROM(state, PROPERTY_STEPS);
+    
+    stateParams[0].vel1 = 5;
+    saveParamToEEPROM(state, PROPERTY_V1);
+    stateParams[0].vel2 = 0;
+    saveParamToEEPROM(state, PROPERTY_V2);
+
+
   debugSerial->println("verbose " + (String)stateParams[0].mode );
   debugSerial->println("responsive " + (String)stateParams[0].steps );
-  debugSerial->println("driveDelayFactor " + (String)stateParams[0].vel1 );
-  // debugSerial->println("driveDelayFactor " + (String)stateParams[0].vel2 );
+  debugSerial->println("driveDelay1 " + (String)stateParams[0].vel1 );
+  debugSerial->println("silent " + (String)stateParams[0].vel2 );
 
   for(uint8_t i = 0; i < NUM_BOXES; i++){
     for(uint8_t s = 0; s < 20; s++){
@@ -762,12 +775,22 @@ void readDebugSerial(){
       debugSerial->println("enable responsive");
       stateParams[0].steps = 0; 
       
+    } else if (inByte == 'q') {
+      debugSerial->println("disable silent");
+      stateParams[0].vel2 = 0; 
+    } else if (inByte == 'Q') {
+      debugSerial->println("enable silent");
+      stateParams[0].vel2 = 1; 
+      
     } else if (inByte == '1') {
-      debugSerial->println("driveDelayFactor 1");
+      debugSerial->println("driveDelay1 1");
       stateParams[0].vel1 = 1;
     } else if (inByte == '2') {
-      debugSerial->println("driveDelayFactor 10");
-      stateParams[0].vel1 = 10;
+      debugSerial->println("driveDelay1 5");
+      stateParams[0].vel1 = 5;
+    } else if (inByte == '3') {
+      debugSerial->println("driveDelay1 20");
+      stateParams[0].vel1 = 20;
     
     } else if (inByte == 'c') {
       setMode(CALIBRATION);

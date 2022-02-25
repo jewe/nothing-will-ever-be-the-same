@@ -6,7 +6,8 @@
   Mini / Box
 
   Arduino Pro or Pro Mini
-
+  328P 5V 16MHz
+  
   2018 Jens Weber
 
 */
@@ -25,10 +26,11 @@ enum {
 ////////////////////////////////////////////////////////////////////////////////
 // CONFIG
 
-String version = "0.10";
-int driveDelayFactor = 1; // 
+String version = "0.12";
+int driveDelay1 = 5; // 
 #define WATCHDOG_TIMEOUT 15000 // ms / send every ...ms state to master
 bool verbose = true; // log more details
+bool silent = false; 
 bool isResponsive = true; // read serial while driving? 
 
 struct boxStates{
@@ -53,6 +55,7 @@ boxStates stateParams[20];
 // VARS
 uint8_t state, lastState;
 long limitSwitchTimer;
+long limitSwitchCounter = 0;
 long watchdog, lastWatchdog;
 uint16_t stepCounter;
 bool limitReached = false; // to break drive cycle by limit switch
@@ -135,6 +138,8 @@ void reset() {
 }
 
 void sendStatus(){
+  if (silent && (state == DOWN_1 || state == DOWN_2 || state == DOWN_3 || state == DOWN_4 || state == UP_1 || state == UP_2 || state == UP_3 || state == UP_4) ) return
+
   cmdMessenger.sendCmdStart(kStatus);
   cmdMessenger.sendCmdArg(state);
   cmdMessenger.sendCmdArg(lastState);
@@ -164,14 +169,22 @@ void configureState(){
     verbose = mode == 1;
     sendLog("set verbose = ");
     sendLog( (String)verbose );
+    delay(50);
 
     isResponsive = steps == 1;
     sendLog("set isResponsive = ");
     sendLog( (String)isResponsive );
+    delay(50);
+    
+    driveDelay1 = vel1;
+    sendLog("set driveDelay1 = ");
+    sendLog( (String)driveDelay1 );
+    delay(50);
 
-    driveDelayFactor = vel1
-    sendLog("set driveDelayFactor = ");
-    sendLog( (String)driveDelayFactor );
+    silent = vel2 == 1;
+    sendLog("set silent = ");
+    sendLog( (String)silent );
+    delay(50);
 
     cmdMessenger.sendCmd(kAck);
   } else sendError("Unknown config state " + _state);
@@ -302,7 +315,7 @@ void setup() {
   pinMode(STEP_PIN, OUTPUT);
   digitalWrite(STEP_PIN, LOW);
 
-  Serial.begin(19200);
+  Serial.begin(38400);
   cmdMessenger.printLfCr();
   attachCommandCallbacks();
 
@@ -332,19 +345,22 @@ void loop() {
     case INIT_1:
 
       sendLog("Version " + version);
-      sendLog("Transfer Test:");
-      for (uint16_t i = 0; i < 10; i++) {
-        sendLog("00000 11111 22222 33333");
+      delay(50);
+      if (verbose){
+        sendLog("Transfer Test:");
+        for (uint16_t i = 0; i < 10; i++) {
+          sendLog("00000 11111 22222 33333");
+        }
+        for (uint16_t i = 0; i < 5; i++) {
+          sendLog("AAAAA");
+        }
+  
+        delay(50);
+        for (uint16_t i = 0; i < 5; i++) {
+          sendLog("BBBBB");
+        }
+        delay(200);
       }
-      for (uint16_t i = 0; i < 5; i++) {
-        sendLog("AAAAA");
-      }
-
-      delay(5)
-      for (uint16_t i = 0; i < 5; i++) {
-        sendLog("BBBBB");
-      }
-
       drive(DOWN, HOLD);
       setState(INIT_2);
     break;
@@ -468,19 +484,15 @@ void loop() {
 
   if (limitSwitchRaw) {
     limitSwitchRaw = false;
-    if (verbose) sendLog("limit switch activated ");
+    if (verbose) sendLog("limit switch activated #" + (String)limitSwitchCounter );
   }
 }
 
 // interrupt (don't use Serial)
 void limitSwitch() {
-  if (millis() < limitSwitchTimer + 500) {
-    //sendLog("limit switch activated, but ignored (<500ms)");
-    return; // debounce switch with 500ms
-  }
-  //digitalWrite(EN_PIN, HIGH);   // disable driver
+  if (millis() < limitSwitchTimer + 500) return; // debounce switch with 500m
   limitSwitchTimer = millis();
-  //sendLog("limit switch activated");
+  limitSwitchCounter++;
   limitReached = true;
   limitSwitchRaw = true;
   digitalWrite(LED, HIGH);
@@ -544,11 +556,9 @@ void drive(bool up, bool free) {
   float a = (v2 - v1) / steps;
 
   if (verbose) {
-    sendLog( "v: " + (String) v );
-    sendLog( "a: " + (String) a );
+    sendLog( "v1: " + (String) v1 + "  a: " + (String) a + "  v2: " + (String) v2 + "  steps: " + (String) steps);
   }
   
-
   // see https://github.com/watterott/SilentStepStick/blob/master/software/TMC2100.ino
 
   digitalWrite(EN_PIN, LOW);    // enable driver
@@ -556,36 +566,26 @@ void drive(bool up, bool free) {
 
   for (uint16_t i = 0; i < steps; i++) {
     if (isResponsive) cmdMessenger.feedinSerialData(); // make box responsive
-    if (!limitReached && !cmdMessenger.available() && state != STOPPED) {
+    if (!limitReached && state != STOPPED) { // && !cmdMessenger.available()
       digitalWrite(STEP_PIN, HIGH);
-      delayMicroseconds(5 * driveDelayFactor); // example watterott: delay(2)
+      delayMicroseconds(driveDelay1); 
       digitalWrite(STEP_PIN, LOW);
       v += a;
-      delayMicroseconds( (unsigned int) (v * driveDelayFactor) );
+      delayMicroseconds( (unsigned int) (v) );
     }
   }
-
+   
+  if (verbose) {
+    sendLog( "va: " + (String) v );
+  }
+  
   if (!free){
-    digitalWrite(EN_PIN, LOW);   // enable driver
+    // digitalWrite(EN_PIN, LOW);   // enable driver
   } else {
     digitalWrite(EN_PIN, HIGH);   // disable driver, treiber ausschalten (dann dreht er frei)
   }
 
-  // if ( cmdMessenger.available() ) {
-  //   sendLog("exit drive loop");
-  // }
-
-  //if (stateParams[state].delay > 0) delay(stateParams[state].delay);
 }
-
-
-
-
-
-
-
-
-
 
 
 
