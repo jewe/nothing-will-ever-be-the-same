@@ -138,7 +138,7 @@ void reset() {
 }
 
 void sendStatus(){
-  if (silent && (state == DOWN_1 || state == DOWN_2 || state == DOWN_3 || state == DOWN_4 || state == UP_1 || state == UP_2 || state == UP_3 || state == UP_4) ) return
+  //if (silent && (state == DOWN_1 || state == DOWN_2 || state == DOWN_3 || state == DOWN_4 || state == UP_1 || state == UP_2 || state == UP_3 || state == UP_4) ) return
 
   cmdMessenger.sendCmdStart(kStatus);
   cmdMessenger.sendCmdArg(state);

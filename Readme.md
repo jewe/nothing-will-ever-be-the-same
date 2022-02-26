@@ -2,17 +2,27 @@
 
 
 ## Debugging
-Use debugging port (micro USB) with 38400bps
+Use debugging port (micro USB) with 115200bps
 
+### Options
+Send char via serial monitor
+* v/V - Box: verbose on/off
+* r/R - Box: responsive while drive loop on/off
+
+see Master.ino:770
 
 ## Update / Sketch Upload
 ### Master
 Use USB B connector
-Disconnect all boxes before upload (Serial port is used for box communication)!
+Disconnect all boxes before upload!
+(Serial port is used for box communication)
+
 
 ### Boxes
-See photo in Doku
+See photo in Doku folder
+Update in box with connected Arduino is possible
 Use FTDI adapter
+
 
 ## States
 
