@@ -51,7 +51,7 @@ enum States{
   CAL_2,
   CAL_3,
 
-  DOWN_1,
+  DOWN_1, // 6
   DOWN_2,
   DOWN_3,
   DOWN_4,
