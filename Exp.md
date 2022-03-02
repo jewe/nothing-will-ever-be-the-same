@@ -19,3 +19,8 @@ set DOWN_1
 5,7;
 
 5,13;
+
+
+# 06
+v 250 ist zu schnell
+v 200 geht
