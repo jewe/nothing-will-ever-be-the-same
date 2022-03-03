@@ -25,8 +25,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 // CONFIG
 
-String version = "0.14";
-#define WATCHDOG_TIMEOUT 60000 // ms
+String version = "0.15";
+#define WATCHDOG_TIMEOUT 80000 // ms
 #define NUM_BOXES 4
 #define VERBOSE true // log more details
 
@@ -51,7 +51,7 @@ enum States{
   CAL_2,
   CAL_3,
 
-  DOWN_1, // 6
+  DOWN_1,
   DOWN_2,
   DOWN_3,
   DOWN_4,
@@ -363,21 +363,30 @@ long watchdog;
 // SETUP
 
 void setup() {
+  delay(100);
+  // wait for serial
+  while (!Serial) {
+      ;
+  }
+  
+  // initialize serial ports:
+  softSerial.begin(115200);
+  if (VERBOSE) debugSerial->println("<MASTER> Setup started. Version " + version);
+
+  Serial.begin(38400);
+  Serial1.begin(38400);
+  Serial2.begin(38400);
+  Serial3.begin(38400);
+  
+
   // initialize the LCD
-	lcd.begin();
+  lcd.begin();
   lcd.backlight();
   lcd.createChar(0, customCharArrow1);
   lcd.createChar(1, customCharArrow2);
   lcd.createChar(2, customCharArrow3);
 
-  // initialize serial ports:
-  Serial.begin(38400);
-  Serial1.begin(38400);
-  Serial2.begin(38400);
-  Serial3.begin(38400);
-  softSerial.begin(115200);
 
-  if (VERBOSE) debugSerial->println("<MASTER> Setup started. Version " + version);
 
   // setup boxes
   for(uint8_t i = 0; i < NUM_BOXES; i++){
@@ -522,6 +531,7 @@ void loop() {
           delay(d);
         }
         setAllBoxesToState(DOWN_1);
+        delay(500);
       } else if ( allBoxesInState(DOWN_READY) ) {
         // start lifting
         debugSerial->println("\n<MASTER> -------  UP  ------" );
@@ -538,6 +548,7 @@ void loop() {
         //   delay(d);
         // }
         setAllBoxesToState(UP_1);
+        delay(500);
       }
 
     break;
@@ -804,6 +815,10 @@ void readDebugSerial(){
       debugSerial->println(mode);
     } else if (inByte == 'i') {
       setMode(INIT);
+      debugSerial->println(mode);
+
+    } else if (inByte == 'g') {
+      setMode(RUNNING);
       debugSerial->println(mode);
 
     } else if (inByte == 'x') {
