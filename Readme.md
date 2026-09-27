@@ -92,7 +92,11 @@ UP_READY:
 
 ----
 
-
 it is not possible to include CmdMessenger into Box class, because function to attach needs to be static
 
 
+
+
+----
+Monitoring Connection for Arduino Pro Mini
+38400baud
