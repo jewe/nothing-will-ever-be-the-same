@@ -96,3 +96,5 @@ UP_READY:
 it is not possible to include CmdMessenger into Box class, because function to attach needs to be static
 
 
+# Video 2026
+https://youtu.be/xVbGahsgtTw
