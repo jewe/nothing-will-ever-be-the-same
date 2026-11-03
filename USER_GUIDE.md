@@ -113,8 +113,8 @@ You see these messages in the debug log (see [Debug connection](#debug-connectio
 | `Timeout` on the display, or `Timeout setState …` | A box didn't answer. | Check the network cable and the box's power. The system carries on with the next status the box sends. |
 | `ERROR limit early in UP_2` (or UP_1, UP_3) | The limit switch triggered too early. The thread may be tangled or wound up unevenly. The box stopped lifting and waits at the top. | Check the thread on that box. |
 | `ERROR UP_5: no limit switch` / `ERROR INIT_2: no limit switch` | The box lifted far beyond the expected distance without hitting the switch. It stopped, to protect the mechanics. | Check the switch and its cable, then switch off and on again. |
-| `LOG limit at pos 35 (full steps …)` | At the top, the box was 35 steps away from where it expected to be. 0 means it lost no steps. | If the value keeps growing in one direction, the motor is losing steps: lower the speeds or soften the speed changes. |
-| `ign=3` in `UP t=… und=0 lat=8us ign=3` | The box ignored 3 short pulses on the limit switch cable, which were noise and not a real hit. | A few are fine. Many of them point to a bad cable or a loose contact. |
+| `LOG limit at pos 35 full steps (0 = no loss)` | At the top, the box was 35 steps away from where it expected to be. 0 means it lost no steps. | If the value keeps growing in one direction, the motor is losing steps: lower the speeds or soften the speed changes. |
+| `ign=3` in `UP t=… und=0 lat=8us ign=3` | During this phase, the box ignored 3 short pulses on the limit switch cable (shorter than 2 ms), which were noise and not a real hit. | A few are fine. Many of them point to a bad cable or a loose contact. |
 | `ERROR … und=5` | The box could not keep up with planning the motion. This should never happen. | Tell the developer. |
 | `<MASTER> Watchdog: no progress -> INIT` | For 2 minutes, not all boxes reported the end of a phase. The master restarts INIT. | Check which box is stuck in the log. |
 

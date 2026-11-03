@@ -161,8 +161,8 @@ Within a segment of N half steps, the period follows a smoothstep: `p = P1 + (P2
 ### Timing report
 
 - The first entry of each segment carries `F_MARK`. The ISR stores `micros()` when it pops a marked entry, which is the moment the previous segment's last pulse fires.
-- At the end of a phase, `reportPhase()` logs one line per segment: plan vs real duration, and first/last speed in half steps per second. It only does this when verbose.
-- It always logs a summary: `DOWN t=4411ms und=0 lat=8us ign=0`. If `und > 0`, the summary is sent as a `kError`.
+- At the end of a phase, `reportPhase()` logs one line per segment when verbose, for example `DOWN_3 n=3000 1453/1455ms v=1992>2141`: half steps, planned/real duration, and first>last speed in half steps per second. A segment aborted before its first step shows real = 0.
+- It always logs a summary: `DOWN t=4411ms und=0 lat=8us ign=0`. `ign` counts the unconfirmed limit pulses of this phase. If `und > 0`, the summary is sent as a `kError`.
 
 ### Responsiveness
 
@@ -220,11 +220,13 @@ Wiring: Mega TX2 (16) → Mini RX, Mega RX2 (17) ← Mini TX, 5V, GND. **Unplug 
 | Underruns | 0 |
 | Max ISR latency | 8–10 µs |
 | Early limit (sim. UP_2) | `kError`, then RELAX → UP_READY, next cycle normal |
+| Real wire on pin 2, held during lifts / falls (10×) | Every hold during a lift: `limit early in UP_1/2`; falls unaffected (4410 ms each) |
 | Lost ack (key `x`) | Timeout logged, state recovered from the next status, no resend |
 | Repeated `DOWN_1` / `UP_1` during a phase | Ignored, motion unchanged |
 
 ## Known pitfalls
 
+- **CmdMessenger texts:** at most 64 characters per command (`MESSENGERBUFFERSIZE`), and **no `,` or `;`**, because these are the separators. Longer or comma-containing log texts arrive cut off.
 - **An enum is invisible to `#if`.** Use `#ifdef` for options like `SIM_EARLY_LIMIT_STATE=UP_2`.
 - **`delayMicroseconds()` is only accurate up to 16383 µs.** This caused the Exp09 sawtooth in UP_1 (V1=1). It isn't used for stepping anymore.
 - **CmdMessenger callbacks must be static functions.** That's why the master has one small wrapper per box ("the ugly part").

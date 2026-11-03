@@ -263,6 +263,7 @@ uint8_t markPushed;
 unsigned long phaseStart;
 
 void resetPhaseStats() {
+  ignoredLimits = 0;
   noInterrupts();
   underruns = 0;
   maxLatTicks = 0;
@@ -514,13 +515,16 @@ void reportPhase(const char *name) {
   if (verbose && segCount <= SEGS && mc <= MARKS) {
     for (uint8_t k = 0; k < segCount; k++) {
       SegInfo &s = segs[k];
+      // segment started = its first (marked) entry was popped by the ISR
+      bool started = s.mark < mc;
       unsigned long start = markMicros[s.mark & (MARKS - 1)];
-      unsigned long end = (k + 1 < segCount) ? markMicros[segs[k + 1].mark & (MARKS - 1)] : stopT;
+      unsigned long end = (k + 1 < segCount && segs[k + 1].mark < mc) ? markMicros[segs[k + 1].mark & (MARKS - 1)] : stopT;
+      unsigned long real = started ? (end - start) / 1000 : 0;
+      // CmdMessenger: max 64 chars per command, no ',' in texts
       sendLog(String(state2Name(s.state)) + (s.aborted ? F(" ABORT") : F("")) +
               F(" n=") + s.n +
-              F(" plan=") + (s.planUs / 1000) +
-              F("ms real=") + ((end - start) / 1000) +
-              F("ms v=") + (uint16_t)(1e6 / s.pFirst) + F("->") + (uint16_t)(1e6 / s.pLast) + F("hs/s"));
+              F(" ") + (s.planUs / 1000) + F("/") + real +
+              F("ms v=") + (uint16_t)(1e6 / s.pFirst) + F(">") + (uint16_t)(1e6 / s.pLast));
     }
   }
   String sum = String(name) + F(" t=") + (millis() - phaseStart) +
@@ -533,7 +537,7 @@ void reportPhase(const char *name) {
 void onLimit() {
   int32_t p = getPos();
   if (homed && (verbose || p > 20 || p < -20)) {
-    sendLog(String(F("limit at pos ")) + (p / 2) + F(" (full steps, 0 = no loss)"));
+    sendLog(String(F("limit at pos ")) + (p / 2) + F(" full steps (0 = no loss)"));
   }
   setPos(0);
   homed = true;
