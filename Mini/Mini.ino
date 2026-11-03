@@ -31,10 +31,8 @@
 #ifndef BENCH
 #define BENCH 0
 #endif
-// BENCH only: simulate an early limit switch hit in this state (e.g. UP_2), 0 = off
-#ifndef SIM_EARLY_LIMIT_STATE
-#define SIM_EARLY_LIMIT_STATE 0
-#endif
+// BENCH only: simulate an early limit switch hit in this state, e.g. -DSIM_EARLY_LIMIT_STATE=UP_2
+// (leave undefined = off)
 
 String version = "0.18";
 
@@ -225,7 +223,7 @@ void limitSwitchISR() {
 bool checkLimit() {
 #if BENCH
   if (getPos() <= 0) return true;  // simulated switch at position 0 (power-up position)
-  #if SIM_EARLY_LIMIT_STATE
+  #ifdef SIM_EARLY_LIMIT_STATE
   static uint8_t simDone = 0;
   if (state == DOWN_1) simDone = 0;
   if (state == SIM_EARLY_LIMIT_STATE && !simDone && segPushed > 200) { simDone = 1; return true; }
