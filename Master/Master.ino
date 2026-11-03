@@ -518,6 +518,10 @@ void setAllBoxesToState(uint8_t state) {
       debugSerial->println(state2Name(state));
       box[i].setStateTimeout = millis();
       box[i].displayNewState = true;
+      // don't keep the old state: RUNNING would send the same phase again.
+      // The next status from the box tells where it is.
+      box[i].state = STATE_UNKNOWN;
+      box[i].requestState();
     }
   }
 }

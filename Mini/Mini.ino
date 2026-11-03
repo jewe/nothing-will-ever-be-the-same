@@ -454,7 +454,14 @@ void configureState() {
 void receiveState() {
   uint8_t _state = cmdMessenger.readInt16Arg();
   cmdMessenger.sendCmd(kAck);
-  if (_state < NWEBTS_NUM_STATES) setState(_state);
+  // repeated phase start (e.g. master missed the ack): don't restart the phase
+  bool running = (_state == DOWN_1 && state >= DOWN_1 && state <= DOWN_READY) ||
+                 (_state == UP_1 && state >= UP_1 && state <= UP_READY) ||
+                 (_state == INIT_1 && state >= INIT_1 && state <= INIT_2);
+  if (running) {
+    sendLog(String(F("ignored repeated ")) + state2Name(_state));
+    sendStatus();
+  } else if (_state < NWEBTS_NUM_STATES) setState(_state);
   else sendError(String(F("Unknown state ")) + _state);
 }
 
