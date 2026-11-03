@@ -63,11 +63,14 @@ UP_READY ─(master)→ DOWN_1 → … → DOWN_5 (driver off at the end) → DO
 DOWN_READY ─(master)→ UP_1 → UP_2 → UP_3 → UP_4 → UP_5 (repeat until limit) → RELAX → UP_READY
 any ─(master)→ STOPPED / INIT_0 / CAL_1   (aborts a running motion)
 CAL_1 (fall slowly, repeat) ─(master)→ CAL_2 (log steps) → CAL_3
+UP_1..UP_3 + limit → kError, RELAX ─(master: all boxes)→ INIT_2 → RELAX → UP_READY
 ```
+
+[USER_GUIDE.md › All phases](USER_GUIDE.md#all-phases) describes every state in plain words.
 
 Rules for the limit switch:
 - A **confirmed** hit during any UP state or INIT_2 stops the motion and goes to RELAX.
-- A hit in UP_1 to UP_3 also sends `kError "limit early in UP_x"`.
+- A hit in UP_1 to UP_3 also sends `kError "limit early in UP_x"`. The master (`Box::receiveError`) sets `earlyLimit` when a text starts with `limit early`. In RUNNING, `recoverToTop()` then sends **all** boxes to `INIT_2` and switches to mode INIT, which returns to RUNNING when all boxes are UP_READY. This gives every box a safe start point again.
 - If the switch never triggers, the box goes to STOPPED and sends `kError` after `MAX_REPEATS_UP5` (40) chunks of UP_5, or `MAX_REPEATS_INIT` (80) chunks of INIT_2.
 
 ### Master modes
@@ -75,7 +78,7 @@ Rules for the limit switch:
 | Mode | What happens |
 |---|---|
 | `INIT` | Sends `INIT_0`. As soon as all boxes are in INIT_0, it configures them and sends `INIT_1`. When all boxes are UP_READY, it switches to `RUNNING`. |
-| `RUNNING` | All UP_READY → wait DL + random(RD) → `DOWN_1`. All DOWN_READY → wait → `UP_1`. The waits keep reading the serial ports (`waitPolling`). |
+| `RUNNING` | A box reported `limit early` → all boxes `INIT_2`, mode INIT. All UP_READY → wait DL + random(RD) → `DOWN_1`. All DOWN_READY → wait → `UP_1`. The waits keep reading the serial ports (`waitPolling`). |
 | `CONFIG` | LCD editor. Each save writes to EEPROM. **Motion parameters reach the boxes only at the next INIT.** |
 | `CALIBRATION` | Only from UP_READY: `CAL_1`, then Back / `C` sends `CAL_2`. |
 | `STOP` | Sends `STOPPED` once. |
@@ -220,6 +223,7 @@ Wiring: Mega TX2 (16) → Mini RX, Mega RX2 (17) ← Mini TX, 5V, GND. **Unplug 
 | Underruns | 0 |
 | Max ISR latency | 8–10 µs |
 | Early limit (sim. UP_2) | `kError`, then RELAX → UP_READY, next cycle normal |
+| Auto test `T` via pin 22 (v0.16 with INIT_2 recovery) | 1 ms tap in UP_2: `ign=1`. 500 ms in UP_3 / UP_1: `limit early`, all boxes INIT_2 → UP_READY → RUNNING. 500 ms in DOWN_3: no effect (4389 ms). Following cycles normal, limit at pos 0 |
 | Real wire on pin 2, held during lifts / falls (10×) | Every hold during a lift: `limit early in UP_1/2`; falls unaffected (4410 ms each) |
 | Lost ack (key `x`) | Timeout logged, state recovered from the next status, no resend |
 | Repeated `DOWN_1` / `UP_1` during a phase | Ignored, motion unchanged |

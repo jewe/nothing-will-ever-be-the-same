@@ -18,6 +18,61 @@ The installation runs in a loop:
 
 The master waits until **all** boxes have finished a phase before it starts the next one. This keeps the boxes in sync.
 
+## All phases
+
+Each box is always in exactly one of these phases (also called states). The display and the debug log show their names.
+"Master" in the *Next* column means the box waits until the master sends the next phase.
+
+### Start-up (INIT)
+
+| Phase | What the box does | Next |
+|---|---|---|
+| `INIT_0` | Just switched on. It waits for the master, and reports its state every 0.5 s. The master sends all the settings, then INIT_1. | Master |
+| `INIT_1` | Drives down ST steps (default: 100 steps ≈ 12 cm, at speed 5). This frees the limit switch if the box was already at the top. | INIT_2 |
+| `INIT_2` | Lifts slowly at speed V2 (default 5) until the limit switch triggers. It lifts in chunks of ST steps and repeats them. After 80 chunks without the switch (≈ 9.6 m with the defaults), it gives up: `ERROR INIT_2: no limit switch`, then STOPPED. | RELAX |
+
+### Fall (DOWN)
+
+The master starts the fall in all boxes at the same moment. The box then runs DOWN_1 to DOWN_5 without a break and without waiting for the master.
+
+| Phase | What the box does | Next |
+|---|---|---|
+| `DOWN_1` | Start of the fall: speeds up from V1 to V2 (default 15 → 80 over 30 steps) | DOWN_2 |
+| `DOWN_2` | Speeds up further (80 → 160 over 500 steps) | DOWN_3 |
+| `DOWN_3` | The long, fast part of the fall (160 → 180 over 1500 steps) | DOWN_4 |
+| `DOWN_4` | Top speed (180 → 199 over 480 steps) | DOWN_5 |
+| `DOWN_5` | Brakes down to a slow speed (150 → 7 over 230 steps). At the end, the motor is switched **off**, so the thread can flow freely and the load settles on the ground. | DOWN_READY |
+| `DOWN_READY` | On the ground, motor off. When all boxes are here, the master waits DL (+ a random time up to RD), then starts the lift. | Master |
+
+The limit switch is ignored during the fall.
+
+### Lift (UP)
+
+| Phase | What the box does | Next |
+|---|---|---|
+| `UP_1` | Switches the motor on, waits 80 ms so it holds firmly, then starts the lift very gently (default 4 → 9 over 900 steps). | UP_2 |
+| `UP_2` | Lifts a bit faster (9 → 15 over 900 steps) | UP_3 |
+| `UP_3` | Faster (16 → 30 over 600 steps) | UP_4 |
+| `UP_4` | Fastest part of the lift (32 → 60 over 500 steps) | UP_5 |
+| `UP_5` | Slows down towards the top (60 → 21 over 150 steps), then keeps lifting at V2 in chunks of ST steps until the limit switch triggers. After 40 extra chunks without the switch: `ERROR UP_5: no limit switch`, then STOPPED. | RELAX |
+| `RELAX` | The limit switch was hit: the box lowers the thread by ST steps (default 10 steps ≈ 1 cm) so the switch is free again. | UP_READY |
+| `UP_READY` | At the top, motor on. When all boxes are here, the master waits DL (+ random RD), then starts the next fall. | Master |
+
+**The limit switch during the lift:**
+
+- In **UP_4 and UP_5**, the switch is the normal end of the lift: the box goes to RELAX.
+- In **UP_1 to UP_3**, the switch is hit **too early**. The thread may be tangled or wound up unevenly. This is an error: the box stops, reports `ERROR limit early in UP_x`, and the master sends **all** boxes to INIT_2. They lift slowly to their switches, so every box has a safe start point again. When all boxes are in UP_READY, the loop continues.
+- A pulse on the switch shorter than 2 ms is treated as noise and ignored (see `ign=` in the log).
+
+### Other phases
+
+| Phase | What the box does | Next |
+|---|---|---|
+| `STOPPED` | Motor off, no motion. After the STOP key (`s`), or after an error where the box gave up. Only INIT starts it again. | Master |
+| `CAL_1` | Calibration: falls slowly (speed 5) and counts its steps, until you stop it. Starts only from UP_READY. | Master |
+| `CAL_2` | Calibration stopped: the box reports the number of full steps it fell (`calibration full steps: …`). | CAL_3 |
+| `CAL_3` | Waits after the calibration. Start INIT to bring the box back to the top. | Master |
+
 ## Hardware at a glance
 
 | Part | What it is |
@@ -111,7 +166,7 @@ You see these messages in the debug log (see [Debug connection](#debug-connectio
 | Message | Meaning | What to do |
 |---|---|---|
 | `Timeout` on the display, or `Timeout setState …` | A box didn't answer. | Check the network cable and the box's power. The system carries on with the next status the box sends. |
-| `ERROR limit early in UP_2` (or UP_1, UP_3) | The limit switch triggered too early. The thread may be tangled or wound up unevenly. The box stopped lifting and waits at the top. | Check the thread on that box. |
+| `ERROR limit early in UP_2` (or UP_1, UP_3) | The limit switch triggered too early. The thread may be tangled or wound up unevenly. The box stops, and the master sends all boxes to INIT_2: they lift slowly to their switches. This can take up to about a minute for a box near the ground. Then the loop continues. | Check the thread on that box. If the error comes back, switch off and fix it. |
 | `ERROR UP_5: no limit switch` / `ERROR INIT_2: no limit switch` | The box lifted far beyond the expected distance without hitting the switch. It stopped, to protect the mechanics. | Check the switch and its cable, then switch off and on again. |
 | `LOG limit at pos 35 full steps (0 = no loss)` | At the top, the box was 35 steps away from where it expected to be. 0 means it lost no steps. | If the value keeps growing in one direction, the motor is losing steps: lower the speeds or soften the speed changes. |
 | `ign=3` in `UP t=… und=0 lat=8us ign=3` | During this phase, the box ignored 3 short pulses on the limit switch cable (shorter than 2 ms), which were noise and not a real hit. | A few are fine. Many of them point to a bad cable or a loose contact. |

@@ -150,6 +150,7 @@ class Box {
   bool isConfigured = false;
   bool displayNewState = false;
   bool acked = false;
+  bool earlyLimit = false; // box reported "limit early" (thread may be tangled)
 
   void setup(uint8_t _index, CmdMessenger *_cmdMessenger) { // 1..4
     index = _index;
@@ -228,6 +229,7 @@ class Box {
     printPrefix();
     debugSerial->print(F("ERROR  "));
     debugSerial->println(msg);
+    if (msg.startsWith(F("limit early"))) earlyLimit = true;
   }
 
   void reset() {
@@ -390,7 +392,9 @@ void loop() {
       break;
 
     case RUNNING:
-      if (allBoxesInState(UP_READY)) {
+      if (anyEarlyLimit()) {
+        recoverToTop();
+      } else if (allBoxesInState(UP_READY)) {
         debugSerial->println(F("\n<MASTER> ------- DOWN ------"));
         waitPolling(stateParams[UP_READY].delay);
         if (stateParams[UP_READY].randomDelay > 0) waitPolling(random(stateParams[UP_READY].randomDelay));
@@ -473,9 +477,30 @@ boolean allBoxesInState(uint8_t state) {
   return true;
 }
 
+bool anyEarlyLimit() {
+  bool any = false;
+  for (uint8_t i = 0; i < NUM_BOXES; i++) any = any || box[i].earlyLimit;
+  return any;
+}
+
+// A box hit its limit switch too early (UP_1..UP_3): the thread may be tangled
+// and the positions are no longer in sync. Lift all boxes slowly with INIT_2
+// until each one hits its switch. The INIT mode switches back to RUNNING when
+// all boxes are in UP_READY.
+void recoverToTop() {
+  for (uint8_t i = 0; i < NUM_BOXES; i++) box[i].earlyLimit = false;
+  debugSerial->println(F("<MASTER> limit early -> all boxes INIT_2"));
+  mode = INIT;
+  watchdog = millis();
+  lcd.clear();
+  displayModeUpdate();
+  setAllBoxesToState(INIT_2);
+}
+
 void setMode(uint8_t _mode) {
   mode = _mode;
   watchdog = millis();
+  for (uint8_t i = 0; i < NUM_BOXES; i++) box[i].earlyLimit = false;
 
   lcd.clear();
   debugSerial->print(F("\n<MASTER> mode: "));
@@ -881,13 +906,13 @@ void benchTest() {
       if (b.state == UP_2 && in > 1000) { debugSerial->println(F("TEST 1: 1ms tap in UP_2, expect ign=1")); benchLimitPulse(1000); benchTestStep++; }
       break;
     case 2: // real hit while lifting -> limit early
-      if (b.state == UP_3 && in > 1000) { debugSerial->println(F("TEST 2: 500ms in UP_3, expect 'limit early in UP_3'")); benchLimitPulse(500000); benchTestStep++; }
+      if (b.state == UP_3 && in > 1000) { debugSerial->println(F("TEST 2: 500ms in UP_3, expect 'limit early in UP_3' + INIT_2")); benchLimitPulse(500000); benchTestStep++; }
       break;
     case 3: // hit while falling -> ignored, fall continues
       if (b.state == DOWN_3 && in > 300) { debugSerial->println(F("TEST 3: 500ms in DOWN_3, expect no effect")); benchLimitPulse(500000); benchTestStep++; }
       break;
     case 4: // real hit at the slow start of the lift
-      if (b.state == UP_1 && in > 3000) { debugSerial->println(F("TEST 4: 500ms in UP_1, expect 'limit early in UP_1'")); benchLimitPulse(500000); benchTestStep++; }
+      if (b.state == UP_1 && in > 3000) { debugSerial->println(F("TEST 4: 500ms in UP_1, expect 'limit early in UP_1' + INIT_2")); benchLimitPulse(500000); benchTestStep++; }
       break;
     case 5:
       if (b.state == UP_READY) { debugSerial->println(F("TEST done")); benchTestStep = 0; }
