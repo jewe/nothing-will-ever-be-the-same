@@ -64,6 +64,9 @@ CmdMessenger cmdMessenger4 = CmdMessenger(Serial);
 
 StateParams stateParams[NWEBTS_NUM_STATES];
 bool boxVerbose = BENCH; // sent to boxes as config state 0
+#if BENCH
+bool benchLoseAcks = false; // key x: simulate lost acks at the next state change
+#endif
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -503,8 +506,17 @@ void setAllBoxesToState(uint8_t state) {
     for (uint8_t i = 0; i < NUM_BOXES; i++) all = all && box[i].acked;
   }
 
+#if BENCH
+  if (benchLoseAcks) { // test: the box got the command, but the master missed the ack
+    benchLoseAcks = false;
+    debugSerial->println(F("<MASTER> BENCH: acks dropped"));
+    for (uint8_t i = 0; i < NUM_BOXES; i++) box[i].acked = false;
+    t = 0;
+  }
+#endif
+
   for (uint8_t i = 0; i < NUM_BOXES; i++) {
-    if (!box[i].acked) {
+    if (!box[i].acked && t != 0) {
       box[i].printPrefix();
       debugSerial->println(F("no ack -> retry"));
       box[i].sendStateBlocking(state);
@@ -596,6 +608,11 @@ void readDebugSerial() {
   } else if (inByte == 'w') {
     saveAllParamsToEEPROM();
     debugSerial->println(F("saved to EEPROM"));
+#if BENCH
+  } else if (inByte == 'x') {
+    benchLoseAcks = true;
+    debugSerial->println(F("BENCH: acks of the next state change will be dropped"));
+#endif
   } else if (inByte == '?') {
     for (uint8_t i = 0; i < NUM_BOXES; i++) box[i].requestState();
   } else {
