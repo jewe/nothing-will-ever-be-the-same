@@ -66,6 +66,13 @@ StateParams stateParams[NWEBTS_NUM_STATES];
 bool boxVerbose = BENCH; // sent to boxes as config state 0
 #if BENCH
 bool benchLoseAcks = false; // key x: simulate lost acks at the next state change
+// key T: automatic limit switch test. Wire Mega pin 22 -> Mini pin 2 (limit switch input).
+// The pin only pulls LOW (like the switch), otherwise it is an input.
+#define BENCH_LIMIT_PIN 22
+uint8_t benchTestStep = 0;
+#endif
+#if BENCH
+void benchLimitPulse(unsigned long us);
 #endif
 
 
@@ -139,6 +146,7 @@ class Box {
   CmdMessenger *cmdMessenger; // CmdMessenger needs to be declared outside of Box
 
   unsigned long setStateTimeout = 0;
+  unsigned long stateSince = 0; // millis when state changed
   bool isConfigured = false;
   bool displayNewState = false;
   bool acked = false;
@@ -168,7 +176,9 @@ class Box {
   }
 
   void receiveStatus() {
-    state = cmdMessenger->readInt16Arg();
+    uint8_t s = cmdMessenger->readInt16Arg();
+    if (s != state) stateSince = millis();
+    state = s;
     lastState = cmdMessenger->readInt16Arg();
     lastStateChange = cmdMessenger->readFloatArg();
     stateTime = cmdMessenger->readFloatArg();
@@ -362,6 +372,9 @@ void loop() {
   pollBoxes();
   checkWatchdog();
   readDebugSerial();
+#if BENCH
+  benchTest();
+#endif
 
   switch (mode) {
 
@@ -522,6 +535,7 @@ void setAllBoxesToState(uint8_t state) {
       box[i].sendStateBlocking(state);
     }
     if (box[i].acked) {
+      if (box[i].state != state) box[i].stateSince = millis();
       box[i].state = state; // the box reports its real state right after the ack
       box[i].setStateTimeout = 0;
     } else {
@@ -609,6 +623,13 @@ void readDebugSerial() {
     saveAllParamsToEEPROM();
     debugSerial->println(F("saved to EEPROM"));
 #if BENCH
+  } else if (inByte == 'T') {
+    benchTestStep = 1;
+    debugSerial->println(F("BENCH: limit switch test started (Mega pin 22 -> Mini pin 2)"));
+  } else if (inByte == 'l') {
+    benchLimitPulse(1000);
+  } else if (inByte == 'L') {
+    benchLimitPulse(500000);
   } else if (inByte == 'x') {
     benchLoseAcks = true;
     debugSerial->println(F("BENCH: acks of the next state change will be dropped"));
@@ -833,3 +854,44 @@ void saveParamToEEPROM(uint8_t state, uint8_t param) {
   else if (param == PROPERTY_DELAY) EEPROM.put(a + NWEBTS_EE_DELAY, p.delay);
   else if (param == PROPERTY_RANDDELAY) EEPROM.put(a + NWEBTS_EE_RAND, p.randomDelay);
 }
+
+
+#if BENCH
+////////////////////////////////////////////////////////////////////////////////
+// BENCH: limit switch test via Mega pin 22 -> Mini pin 2
+
+void benchLimitPulse(unsigned long us) {
+  debugSerial->print(F("<MASTER> BENCH: limit pulse "));
+  debugSerial->print(us / 1000.0, 1);
+  debugSerial->print(F(" ms in "));
+  debugSerial->println(state2Name(box[0].state));
+  digitalWrite(BENCH_LIMIT_PIN, LOW);
+  pinMode(BENCH_LIMIT_PIN, OUTPUT); // pull low
+  if (us < 20000) delayMicroseconds(us);
+  else waitPolling(us / 1000);
+  pinMode(BENCH_LIMIT_PIN, INPUT);  // release (Mini pull-up)
+}
+
+void benchTest() {
+  if (!benchTestStep) return;
+  Box &b = box[0];
+  unsigned long in = millis() - b.stateSince;
+  switch (benchTestStep) {
+    case 1: // noise while lifting -> ignored (ign=1)
+      if (b.state == UP_2 && in > 1000) { debugSerial->println(F("TEST 1: 1ms tap in UP_2, expect ign=1")); benchLimitPulse(1000); benchTestStep++; }
+      break;
+    case 2: // real hit while lifting -> limit early
+      if (b.state == UP_3 && in > 1000) { debugSerial->println(F("TEST 2: 500ms in UP_3, expect 'limit early in UP_3'")); benchLimitPulse(500000); benchTestStep++; }
+      break;
+    case 3: // hit while falling -> ignored, fall continues
+      if (b.state == DOWN_3 && in > 300) { debugSerial->println(F("TEST 3: 500ms in DOWN_3, expect no effect")); benchLimitPulse(500000); benchTestStep++; }
+      break;
+    case 4: // real hit at the slow start of the lift
+      if (b.state == UP_1 && in > 3000) { debugSerial->println(F("TEST 4: 500ms in UP_1, expect 'limit early in UP_1'")); benchLimitPulse(500000); benchTestStep++; }
+      break;
+    case 5:
+      if (b.state == UP_READY) { debugSerial->println(F("TEST done")); benchTestStep = 0; }
+      break;
+  }
+}
+#endif
