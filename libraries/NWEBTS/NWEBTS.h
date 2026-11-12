@@ -86,12 +86,15 @@ struct StateParams {
 // delayMicroseconds() and produced a sawtooth speed (the stutter at the start
 // of each lift). Executed correctly, V1=1 would make UP_1 take ~50 s.
 // V1=4 reproduces the ~16 s UP_1 duration that was seen in Trier.
+//
+// INIT_2 vel2: 16 is 3x the speed of the former 5 (period 3315 us vs 10190 us
+// per half step). A full lift from the ground takes ~21 s instead of ~62 s.
 const StateParams NWEBTS_DEFAULTS[NWEBTS_NUM_STATES] PROGMEM = {
   //  mode       steps vel1 vel2 delay rand
   { HALF,          0,   0,   0,    0,  0 }, // STOPPED
   { HALF,          0,   0,   0,    0,  0 }, // INIT_0
   { HALF,        100,   5,   5,    0,  0 }, // INIT_1
-  { HALF,        100,   5,   5,    0,  0 }, // INIT_2 (repeated until limit)
+  { HALF,        100,   5,  16,    0,  0 }, // INIT_2 (first chunk 5 -> 16, then repeated at 16 until limit)
   { HALF,          0,   0,   0,    0,  0 }, // CAL_1
   { HALF,          0,   0,   0,    0,  0 }, // CAL_2
   { HALF,          0,   0,   0,    0,  0 }, // CAL_3

@@ -29,7 +29,7 @@ Each box is always in exactly one of these phases (also called states). The disp
 |---|---|---|
 | `INIT_0` | Just switched on. It waits for the master, and reports its state every 0.5 s. The master sends all the settings, then INIT_1. | Master |
 | `INIT_1` | Drives down ST steps (default: 100 steps ≈ 12 cm, at speed 5). This frees the limit switch if the box was already at the top. | INIT_2 |
-| `INIT_2` | Lifts slowly at speed V2 (default 5) until the limit switch triggers. It lifts in chunks of ST steps and repeats them. After 80 chunks without the switch (≈ 9.6 m with the defaults), it gives up: `ERROR INIT_2: no limit switch`, then STOPPED. | RELAX |
+| `INIT_2` | Lifts at speed V2 (default 16) until the limit switch triggers. It lifts in chunks of ST steps and repeats them; the first chunk speeds up smoothly from V1 (default 5) to V2. A box near the ground needs about 20 s. After 80 chunks without the switch (≈ 9.6 m with the defaults), it gives up: `ERROR INIT_2: no limit switch`, then STOPPED. | RELAX |
 
 ### Fall (DOWN)
 
@@ -61,7 +61,7 @@ The limit switch is ignored during the fall.
 **The limit switch during the lift:**
 
 - In **UP_4 and UP_5**, the switch is the normal end of the lift: the box goes to RELAX.
-- In **UP_1 to UP_3**, the switch is hit **too early**. The thread may be tangled or wound up unevenly. This is an error: the box stops, reports `ERROR limit early in UP_x`, and the master sends **all** boxes to INIT_2. They lift slowly to their switches, so every box has a safe start point again. When all boxes are in UP_READY, the loop continues.
+- In **UP_1 to UP_3**, the switch is hit **too early**. The thread may be tangled or wound up unevenly. This is an error: the box stops, reports `ERROR limit early in UP_x`, and the master sends **all** boxes to INIT_2. They lift to their switches, so every box has a safe start point again. When all boxes are in UP_READY, the loop continues.
 - A pulse on the switch shorter than 2 ms is treated as noise and ignored (see `ign=` in the log).
 
 ### Other phases
@@ -166,7 +166,7 @@ You see these messages in the debug log (see [Debug connection](#debug-connectio
 | Message | Meaning | What to do |
 |---|---|---|
 | `Timeout` on the display, or `Timeout setState …` | A box didn't answer. | Check the network cable and the box's power. The system carries on with the next status the box sends. |
-| `ERROR limit early in UP_2` (or UP_1, UP_3) | The limit switch triggered too early. The thread may be tangled or wound up unevenly. The box stops, and the master sends all boxes to INIT_2: they lift slowly to their switches. This can take up to about a minute for a box near the ground. Then the loop continues. | Check the thread on that box. If the error comes back, switch off and fix it. |
+| `ERROR limit early in UP_2` (or UP_1, UP_3) | The limit switch triggered too early. The thread may be tangled or wound up unevenly. The box stops, and the master sends all boxes to INIT_2: they lift to their switches. This can take up to about 20 seconds for a box near the ground. Then the loop continues. | Check the thread on that box. If the error comes back, switch off and fix it. |
 | `ERROR UP_5: no limit switch` / `ERROR INIT_2: no limit switch` | The box lifted far beyond the expected distance without hitting the switch. It stopped, to protect the mechanics. | Check the switch and its cable, then switch off and on again. |
 | `LOG limit at pos 35 full steps (0 = no loss)` | At the top, the box was 35 steps away from where it expected to be. 0 means it lost no steps. | If the value keeps growing in one direction, the motor is losing steps: lower the speeds or soften the speed changes. |
 | `ign=3` in `UP t=… und=0 lat=8us ign=3` | During this phase, the box ignored 3 short pulses on the limit switch cable (shorter than 2 ms), which were noise and not a real hit. | A few are fine. Many of them point to a bad cable or a loose contact. |

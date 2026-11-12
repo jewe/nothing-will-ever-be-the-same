@@ -217,7 +217,7 @@ Wiring: Mega TX2 (16) → Mini RX, Mega RX2 (17) ← Mini TX, 5V, GND. **Unplug 
 
 | Check | Result |
 |---|---|
-| INIT (from the top) | 4.7 s |
+| INIT (from the top) | 4.7 s (measured with INIT_2 V2 = 5; calculated 4.0 s with the current V2 = 16) |
 | DOWN | 4.41 s; plan vs real within 2 ms per segment |
 | UP | 29.79 s |
 | Underruns | 0 |

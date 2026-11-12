@@ -484,7 +484,7 @@ bool anyEarlyLimit() {
 }
 
 // A box hit its limit switch too early (UP_1..UP_3): the thread may be tangled
-// and the positions are no longer in sync. Lift all boxes slowly with INIT_2
+// and the positions are no longer in sync. Lift all boxes with INIT_2
 // until each one hits its switch. The INIT mode switches back to RUNNING when
 // all boxes are in UP_READY.
 void recoverToTop() {
